@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JS State Management - Habit Quest</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #8b5cf6;
+      --accent-hover: #7c3aed;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+
+    * { 
+      box-sizing: border-box; 
+      font-family: 'Segoe UI', system-ui, sans-serif; 
+    }
+
+    body {
+      background: radial-gradient(circle at top, #1e1b4b, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+      margin: 0;
+      padding: 40px 16px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app-card {
+      background: var(--card-bg);
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+      height: fit-content;
+    }
+
+    h1 { 
+      margin-top: 0; 
+      color: #c084fc; 
+      font-size: 24px; 
+      text-align: center; 
+    }
+
+    form { 
+      display: flex; 
+      gap: 8px; 
+      margin-bottom: 20px; 
+    }
+
+    input {
+      flex: 1; 
+      padding: 12px; 
+      background: #0f172a; 
+      border: 1px solid #334155;
+      border-radius: 8px; 
+      color: var(--text); 
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+    }
+
+    button {
+      padding: 12px 16px; 
+      background: var(--accent); 
+      color: white;
+      border: none; 
+      border-radius: 8px; 
+      font-weight: bold; 
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: var(--accent-hover);
+    }
+
+    .filters { 
+      display: flex; 
+      gap: 8px; 
+      margin-bottom: 16px; 
+    }
+
+    .filters button {
+      flex: 1; 
+      background: #0f172a; 
+      color: var(--muted); 
+      border: 1px solid #334155; 
+      padding: 8px;
+    }
+
+    .filters button.active { 
+      background: var(--accent); 
+      color: white; 
+      border-color: var(--accent); 
+    }
+
+    ul { 
+      list-style: none; 
+      padding: 0; 
+      margin: 0; 
+    }
+
+    li {
+      background: #0f172a; 
+      border: 1px solid #334155; 
+      border-radius: 8px;
+      padding: 12px; 
+      margin-bottom: 8px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+    }
+
+    .streak-badge { 
+      background: #312e81; 
+      color: #a5b4fc; 
+      padding: 4px 8px; 
+      border-radius: 12px; 
+      font-size: 12px; 
+      margin-left: 8px;
+    }
+
+    .actions { 
+      display: flex; 
+      gap: 8px; 
+      align-items: center; 
+    }
+
+    .check-btn { 
+      background: #166534; 
+      padding: 6px 10px; 
+      font-size: 12px; 
+    }
+
+    .check-btn:hover {
+      background: #15803d;
+    }
+
+    .check-btn.completed { 
+      background: #334155; 
+      color: var(--muted);
+    }
+
+    .delete-btn { 
+      background: transparent; 
+      color: #ef4444; 
+      padding: 4px 8px; 
+    }
+
+    .delete-btn:hover {
+      background: rgba(239, 68, 68, 0.1);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-card">
+    <h1>⚡ Habit Quest</h1>
+    
+    <!-- Add Habit Form -->
+    <form id="habit-form">
+      <input type="text" id="habit-input" placeholder="New habit (e.g. Read 20 mins)..." required>
+      <button type="submit">Add</button>
+    </form>
+
+    <!-- Filters -->
+    <div id="filter-buttons" class="filters">
+      <button data-filter="all" class="active">All</button>
+      <button data-filter="active">Pending</button>
+      <button data-filter="completed">Done Today</button>
+    </div>
+
+    <!-- Habit List -->
+    <ul id="habit-list"></ul>
+  </div>
+
+  <!-- JavaScript logic properly wrapped inside <script> tags -->
+  <script>
+    // Central Application State
+    let state = {
+      habits: JSON.parse(localStorage.getItem('habits')) || [],
+      filter: 'all' // 'all' | 'active' | 'completed'
+    };
+
+    // DOM References
+    const form = document.getElementById('habit-form');
+    const input = document.getElementById('habit-input');
+    const habitList = document.getElementById('habit-list');
+    const filterButtons = document.getElementById('filter-buttons');
+
+    // Helper: Get formatted date string YYYY-MM-DD
+    const getTodayDate = () => new Date().toISOString().split('T')[0];
+
+    // Persist State to LocalStorage
+    function saveState() {
+      localStorage.setItem('habits', JSON.stringify(state.habits));
+    }
+
+    // Render UI driven by State
+    function render() {
+      habitList.innerHTML = '';
+      const today = getTodayDate();
+
+      // 1. Filter Items based on state
+      const filtered = state.habits.filter(h => {
+        const isDoneToday = h.lastCompleted === today;
+        if (state.filter === 'active') return !isDoneToday;
+        if (state.filter === 'completed') return isDoneToday;
+        return true;
+      });
+
+      // 2. Render dynamic DOM elements
+      filtered.forEach(habit => {
+        const isDoneToday = habit.lastCompleted === today;
+        const li = document.createElement('li');
+        li.dataset.id = habit.id;
+
+        li.innerHTML = `
+          <div>
+            <strong>${escapeHTML(habit.title)}</strong>
+            <span class="streak-badge">🔥 ${habit.streak} day streak</span>
+          </div>
+          <div class="actions">
+            <button class="check-btn ${isDoneToday ? 'completed' : ''}">
+              ${isDoneToday ? 'Done ✓' : 'Mark Done'}
+            </button>
+            <button class="delete-btn">✕</button>
+          </div>
+        `;
+
+        habitList.appendChild(li);
+      });
+
+      // 3. Update filter button styles
+      Array.from(filterButtons.children).forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === state.filter);
+      });
+    }
+
+    // Utility: Prevent XSS attacks
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+      );
+    }
+
+    // CREATE (Add Habit)
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = input.value.trim();
+      if (!title) return;
+
+      state.habits.push({
+        id: Date.now().toString(),
+        title,
+        streak: 0,
+        lastCompleted: null
+      });
+
+      saveState();
+      render();
+      input.value = '';
+    });
+
+    // UPDATE & DELETE (Event Delegation)
+    habitList.addEventListener('click', (e) => {
+      const li = e.target.closest('li');
+      if (!li) return;
+      const id = li.dataset.id;
+      const habit = state.habits.find(h => h.id === id);
+
+      // DELETE
+      if (e.target.classList.contains('delete-btn')) {
+        state.habits = state.habits.filter(h => h.id !== id);
+        saveState();
+        render();
+        return;
+      }
+
+      // UPDATE (Toggle status & calculate streak)
+      if (e.target.classList.contains('check-btn')) {
+        const today = getTodayDate();
+        if (habit.lastCompleted === today) {
+          habit.lastCompleted = null;
+          habit.streak = Math.max(0, habit.streak - 1);
+        } else {
+          habit.lastCompleted = today;
+          habit.streak += 1;
+        }
+        saveState();
+        render();
+      }
+    });
+
+    // FILTERING (Event Delegation)
+    filterButtons.addEventListener('click', (e) => {
+      if (e.target.tagName === 'BUTTON') {
+        state.filter = e.target.dataset.filter;
+        render();
+      }
+    });
+
+    // Initial Execution
+    render();
+  </script>
+</body>
+</html> 
